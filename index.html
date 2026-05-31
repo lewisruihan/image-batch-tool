@@ -3,501 +3,1296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片批量处理与智能切割工具 (240x240)</title>
-    <!-- 引入可爱的童趣手写字体 (站酷快乐体) -->
+    <title>图片批量处理工具</title>
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #4CAF50;
-            --primary-hover: #45a049;
-            --bg-color: #f4f7f6;
-            --text-color: #333;
-            --border-color: #ddd;
+            --primary: #2f7d57;
+            --primary-strong: #246446;
+            --accent: #7c5cff;
+            --warning: #f4a62a;
+            --bg: #f5f7f4;
+            --surface: #ffffff;
+            --surface-soft: #eef4ef;
+            --text: #223029;
+            --muted: #68746e;
+            --line: #dbe3de;
+            --shadow: 0 12px 30px rgba(35, 49, 42, 0.08);
+            --radius: 8px;
         }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
+            background:
+                linear-gradient(180deg, rgba(47, 125, 87, 0.08), transparent 260px),
+                var(--bg);
+            color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 20px;
         }
-        h2 {
-            text-align: center;
-            margin-bottom: 5px;
+
+        .app {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0 44px;
         }
-        p.subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
+
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 22px;
         }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(26px, 4vw, 42px);
+            line-height: 1.1;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .output-size {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
         .drop-zone {
-            border: 3px dashed #ccc;
-            border-radius: 12px;
-            padding: 40px 20px;
-            text-align: center;
-            font-size: 16px;
-            color: #888;
-            background-color: #fff;
-            transition: all 0.3s ease;
+            position: relative;
+            min-height: 132px;
+            border: 2px dashed var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 7px;
             cursor: pointer;
-            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
         }
+
+        .drop-zone:hover,
         .drop-zone.hover {
-            border-color: var(--primary-color);
-            background-color: #e8f5e9;
-            color: var(--primary-color);
+            border-color: var(--primary);
+            background: #f7fbf8;
+            transform: translateY(-1px);
         }
-        .controls {
+
+        .drop-zone.segment {
+            border-color: rgba(124, 92, 255, 0.42);
+            background: #fbfaff;
+        }
+
+        .drop-zone.segment:hover,
+        .drop-zone.segment.hover {
+            border-color: var(--accent);
+            background: #f7f4ff;
+        }
+
+        .drop-title {
+            font-size: 17px;
+            font-weight: 800;
+        }
+
+        .drop-copy {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .segmentation-section,
+        .panel,
+        .toolbar {
+            background: var(--surface);
+            border: 1px solid rgba(219, 227, 222, 0.85);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .segmentation-section {
+            display: none;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .section-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 20px;
-            padding: 15px;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        h2, h3 {
+            margin: 0;
+            font-size: 17px;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .segmentation-canvas-wrap {
+            max-height: 560px;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #f7f8f7;
+        }
+
+        #segmentation-canvas {
+            display: block;
+            max-width: 100%;
+            cursor: crosshair;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .panel {
+            padding: 18px;
+        }
+
+        .preview-panel {
+            position: sticky;
+            top: 16px;
+        }
+
+        .live-preview-box {
+            width: 240px;
+            height: 240px;
+            margin: 16px auto 12px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background:
+                linear-gradient(45deg, #f2f4f2 25%, transparent 25%),
+                linear-gradient(-45deg, #f2f4f2 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #f2f4f2 75%),
+                linear-gradient(-45deg, transparent 75%, #f2f4f2 75%),
+                #ffffff;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+            background-size: 20px 20px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        #live-preview-img {
+            width: 240px;
+            height: 240px;
+            display: none;
+        }
+
+        #live-preview-placeholder {
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.6;
+            padding: 18px;
+        }
+
+        .active-file {
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+            min-height: 20px;
+            word-break: break-all;
+        }
+
+        .control-stack {
+            display: grid;
+            gap: 14px;
+        }
+
+        .control-card {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 16px;
             background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .control-panel {
-            background: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
+
+        .control-card.text-card {
+            background: #fffaf0;
+            border-color: rgba(244, 166, 42, 0.42);
         }
-        .control-group {
-            margin-bottom: 15px;
-        }
-        .control-group:last-child {
-            margin-bottom: 0;
-        }
-        .flex-row {
+
+        .control-title {
             display: flex;
-            gap: 20px;
+            justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            font-weight: 800;
         }
-        .flex-1 {
-            flex: 1;
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
         }
+
+        .field-grid.three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        label {
+            color: #46524c;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        input[type="text"]:focus {
+            outline: 2px solid rgba(47, 125, 87, 0.18);
+            border-color: var(--primary);
+        }
+
+        input[type="color"] {
+            width: 44px;
+            height: 40px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 3px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .text-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .font-note {
+            font-family: "ZCOOL KuaiLe", cursive;
+            color: var(--warning);
+            font-size: 15px;
+            white-space: nowrap;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            margin-top: 18px;
+        }
+
+        .status {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
         .btn-group {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
+            justify-content: flex-end;
         }
+
         button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 15px;
-            border-radius: 6px;
+            border: 0;
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            background: var(--primary);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
             cursor: pointer;
-            transition: background 0.3s, opacity 0.3s;
+            transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
         }
-        button.secondary {
-            background-color: #fff;
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-        }
-        button.secondary:hover {
-            background-color: #f0f0f0;
-        }
-        button.ai-btn {
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
-            color: white;
-            border: none;
-        }
-        button.ai-btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, #5c7cfa, #975fe3);
-        }
+
         button:hover:not(:disabled) {
-            background-color: var(--primary-hover);
+            background: var(--primary-strong);
+            transform: translateY(-1px);
         }
+
+        button.secondary {
+            background: #fff;
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+
+        button.secondary:hover:not(:disabled) {
+            background: #f3f6f4;
+        }
+
+        button.ai-btn {
+            background: var(--accent);
+        }
+
+        button.ai-btn:hover:not(:disabled) {
+            background: #6548e8;
+        }
+
         button:disabled {
-            background-color: #ccc;
+            opacity: 0.45;
             cursor: not-allowed;
-            opacity: 0.7;
+            transform: none;
         }
-        #preview-container {
+
+        .preview-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+            gap: 14px;
+            margin-top: 18px;
         }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            border: 1px dashed var(--line);
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.55);
+        }
+
         .preview-item {
             position: relative;
-            background: #fff;
+            display: grid;
+            gap: 10px;
             padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
             border: 2px solid transparent;
+            border-radius: var(--radius);
+            background: var(--surface);
+            box-shadow: 0 8px 22px rgba(35, 49, 42, 0.07);
+            cursor: pointer;
+            transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
         }
+
         .preview-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
+
+        .preview-item.active {
+            border-color: var(--accent);
+        }
+
         .preview-item.selected {
-            border-color: var(--primary-color);
-            background-color: #f1f8f1;
+            background: #f5fbf7;
+            border-color: var(--primary);
         }
+
         .preview-item.selected::after {
-            content: '✓';
+            content: "✓";
             position: absolute;
-            top: -10px;
-            right: -10px;
-            background: var(--primary-color);
-            color: white;
-            width: 24px;
-            height: 24px;
+            top: 8px;
+            right: 8px;
+            width: 23px;
+            height: 23px;
+            display: grid;
+            place-items: center;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background: var(--primary);
+            color: #fff;
+            font-weight: 900;
+            font-size: 13px;
         }
-        .preview-item img {
-            width: 120px;
-            height: 120px;
+
+        .thumb {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #fafafa;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        .thumb img {
+            width: 100%;
+            height: 100%;
             object-fit: contain;
-            border: 1px solid #eee;
-            background: #f9f9f9;
-            border-radius: 4px;
-            margin: 0 auto;
-            display: block;
         }
-        .preview-item .filename {
+
+        .meta {
+            min-width: 0;
+        }
+
+        .filename {
             display: block;
-            margin-top: 10px;
-            font-size: 12px;
-            color: #444;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 800;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .preview-item .filesize {
+
+        .filesize {
             display: block;
-            margin-top: 4px;
-            font-size: 11px;
-            color: #888;
-        }
-        .single-download-btn {
-            margin-top: 10px;
+            margin-top: 3px;
+            color: var(--muted);
             font-size: 12px;
-            padding: 5px 10px;
+        }
+
+        .single-download-btn {
             width: 100%;
-            background-color: #e0e0e0;
-            color: #333;
+            padding: 8px 10px;
+            background: #e9efeb;
+            color: var(--text);
         }
-        .single-download-btn:hover {
-            background-color: #d0d0d0;
+
+        .single-download-btn:hover:not(:disabled) {
+            background: #dfe8e2;
         }
-        #segmentation-section {
-            background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
-            display: none;
-        }
-        #segmentation-container {
-            position: relative;
-            overflow: auto;
-            max-height: 600px;
-            border: 1px solid #eee;
-            background: #f9f9f9;
-        }
-        #segmentation-canvas {
-            display: block;
-            cursor: crosshair;
-        }
-        .segment-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 15px;
-        }
-        .segment-tips {
-            font-size: 13px;
-            color: #666;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            background: #1f2a24;
+            color: #fff;
+            border-radius: var(--radius);
+            padding: 11px 14px;
             font-size: 14px;
-            box-sizing: border-box;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 20;
         }
-        input[type="color"] {
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            cursor: pointer;
-            padding: 0;
-            background: none;
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
-        .childish-font-preview {
-            font-family: 'ZCOOL KuaiLe', cursive;
-            font-size: 16px;
-            color: #888;
-            margin-left: 10px;
+
+        @media (max-width: 860px) {
+            header,
+            .toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .upload-grid,
+            .workspace,
+            .field-grid,
+            .field-grid.three {
+                grid-template-columns: 1fr;
+            }
+
+            .preview-panel {
+                position: static;
+            }
+
+            .btn-group {
+                justify-content: stretch;
+            }
+
+            .btn-group button {
+                flex: 1;
+            }
         }
-        .editor-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .editor-controls {
-            width: 100%;
-        }
-        .editor-preview-panel {
-            width: 100%;
-            box-sizing: border-box;
-            background: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #live-preview-box {
-            width: 240px;
-            height: 240px;
-            border: 2px dashed #ccc;
-            background: #f9f9f9;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        #live-preview-box img {
-            width: 100%;
-            height: 100%;
-            object-fit: none;
-            display: none;
+
+        @media (max-width: 420px) {
+            .app {
+                width: min(100% - 20px, 1120px);
+                padding-top: 20px;
+            }
+
+            .live-preview-box,
+            #live-preview-img {
+                width: min(240px, calc(100vw - 72px));
+                height: min(240px, calc(100vw - 72px));
+            }
         }
     </style>
 </head>
 <body>
+    <main class="app">
+        <header>
+            <div>
+                <h1>图片批量处理工具</h1>
+                <p class="subtitle">统一尺寸、批量导出、自由微调，并可添加手写风格文字。</p>
+            </div>
+            <div class="output-size">导出尺寸 <strong>240 x 240</strong></div>
+        </header>
 
-    <h2>🖼️ 图片批量处理与智能切割工具</h2>
-    <p class="subtitle">统一尺寸 | 智能切割 | 自由微调 | 涂鸦文字</p>
+        <section class="upload-grid" aria-label="上传入口">
+            <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
+                <div class="drop-title">普通批量处理</div>
+                <div class="drop-copy">点击选择，或将单张/多张图片拖到这里。支持 PNG、JPG、WebP、GIF 等常见图片。</div>
+                <input type="file" id="file-input" multiple accept="image/*">
+            </div>
 
-    <div id="segment-drop-zone" class="drop-zone" style="border-color: #a777e3; background-color: #f8f4fc;">
-        ⚡ <strong>多人物图片切割入口：</strong>将包含多个形象的图片拖拽到这里
-        <input type="file" id="segment-file-input" accept="image/*" style="display: none;">
-    </div>
+            <div id="segment-drop-zone" class="drop-zone segment" role="button" tabindex="0">
+                <div class="drop-title">多形象图片手动切割</div>
+                <div class="drop-copy">上传一张包含多个形象的图片后，在画布上框选区域，再统一处理为 240 x 240。</div>
+                <input type="file" id="segment-file-input" accept="image/*">
+            </div>
+        </section>
 
-    <div id="segmentation-section">
-        <h3>🔍 智能切割与手动调整</h3>
-        <div id="segmentation-container">
-            <canvas id="segmentation-canvas"></canvas>
-        </div>
-        <div class="segment-controls">
-            <div class="segment-tips">👉 <strong>操作指南：</strong> 拖动框中心移动，拖动边角缩放，Delete删除。</div>
+        <section id="segmentation-section" class="segmentation-section" aria-label="图片切割">
+            <div class="section-head">
+                <div>
+                    <h2>切割区域</h2>
+                    <div class="hint">拖动空白处创建框，拖动框内移动，拖动四角缩放，按 Delete 删除选中框。</div>
+                </div>
+                <div class="btn-group">
+                    <button id="cancel-segment-btn" class="secondary" type="button">取消</button>
+                    <button id="process-segment-btn" type="button">处理选中区域</button>
+                </div>
+            </div>
+            <div class="segmentation-canvas-wrap">
+                <canvas id="segmentation-canvas"></canvas>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <aside class="panel preview-panel">
+                <h2>实时预览</h2>
+                <div class="hint">这里显示当前图片最终导出效果。</div>
+                <div class="live-preview-box">
+                    <span id="live-preview-placeholder">上传图片后<br>在此查看导出效果</span>
+                    <img id="live-preview-img" alt="实时导出预览">
+                </div>
+                <div id="active-file" class="active-file"></div>
+            </aside>
+
+            <section class="control-stack" aria-label="处理参数">
+                <div class="control-card">
+                    <div class="control-title">
+                        <span>图像位置与缩放</span>
+                        <button id="reset-adjust-btn" class="secondary" type="button">重置</button>
+                    </div>
+                    <div class="field">
+                        <label for="padding-slider">四周留白比例：<span id="padding-value">0%</span></label>
+                        <input type="range" id="padding-slider" min="0" max="40" value="0">
+                    </div>
+                    <div class="field-grid" style="margin-top: 14px;">
+                        <div class="field">
+                            <label for="offset-x-slider">水平偏移：<span id="offset-x-value">0%</span></label>
+                            <input type="range" id="offset-x-slider" min="-100" max="100" value="0">
+                        </div>
+                        <div class="field">
+                            <label for="offset-y-slider">垂直偏移：<span id="offset-y-value">0%</span></label>
+                            <input type="range" id="offset-y-slider" min="-100" max="100" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-card text-card">
+                    <div class="control-title">
+                        <span>添加文字</span>
+                        <span class="font-note">手写风格</span>
+                    </div>
+                    <div class="text-row">
+                        <input type="text" id="overlay-text" placeholder="输入文字，可留空">
+                        <input type="color" id="text-color" value="#ff5722" aria-label="文字颜色">
+                    </div>
+                    <div class="field-grid three">
+                        <div class="field">
+                            <label for="text-size-slider">大小：<span id="text-size-value">36</span>px</label>
+                            <input type="range" id="text-size-slider" min="10" max="120" value="36">
+                        </div>
+                        <div class="field">
+                            <label for="text-x-slider">左右：<span id="text-x-value">120</span></label>
+                            <input type="range" id="text-x-slider" min="0" max="240" value="120">
+                        </div>
+                        <div class="field">
+                            <label for="text-y-slider">上下：<span id="text-y-value">200</span></label>
+                            <input type="range" id="text-y-slider" min="0" max="240" value="200">
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <section class="toolbar" aria-label="批量操作">
+            <span id="status-text" class="status">已处理：0 张 | 已选：0 张</span>
             <div class="btn-group">
-                <button id="cancel-segment-btn" class="secondary">取消</button>
-                <button id="process-segment-btn">开始切割与处理</button>
+                <button id="ai-rename-btn" class="ai-btn" type="button" disabled>AI 重命名</button>
+                <button id="select-all-btn" class="secondary" type="button" disabled>全选</button>
+                <button id="clear-btn" class="secondary" type="button" disabled>清空</button>
+                <button id="download-btn" type="button" disabled>下载选中</button>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <div id="drop-zone" class="drop-zone">
-        📁 <strong>普通批量处理入口：</strong>点击或拖拽单张/多张图片到这里
-        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
-    </div>
+        <section id="preview-container" class="preview-container" aria-label="处理结果">
+            <div class="empty-state">还没有图片。先从上方上传入口添加图片。</div>
+        </section>
+    </main>
 
-    <div class="editor-layout">
-        <div class="editor-preview-panel">
-            <h4 style="margin-top: 0; color: #444; margin-bottom: 15px;">👁️ 实时大图预览 (240x240)</h4>
-            <div id="live-preview-box">
-                <span id="live-preview-placeholder" style="color: #999; font-size: 14px; text-align: center; line-height: 1.5;">上传图片后<br>在此查看实际导出效果</span>
-                <img id="live-preview-img" alt="Live Preview">
-            </div>
-        </div>
-
-        <div class="editor-controls">
-            <div class="control-panel" style="margin-bottom: 20px;">
-                <h4 style="margin-top: 0; color: #444;">📐 图像位置与缩放调整</h4>
-                <div class="control-group">
-                    <label for="padding-slider" style="font-weight: bold; color: #555; font-size: 14px;">
-                        🖼️ 统一四周留白比例: <span id="padding-value" style="color: var(--primary-color);">0%</span>
-                    </label>
-                    <input type="range" id="padding-slider" min="0" max="40" value="0" style="width: 100%; margin-top: 8px; cursor: pointer;">
-                </div>
-                <div class="flex-row">
-                    <div class="flex-1">
-                        <label for="offset-x-slider" style="font-weight: bold; color: #555; font-size: 14px;">
-                            ↔️ 水平偏移: <span id="offset-x-value" style="color: var(--primary-color);">0%</span>
-                        </label>
-                        <input type="range" id="offset-x-slider" min="-100" max="100" value="0" style="width: 100%; margin-top: 5px; cursor: pointer;">
-                    </div>
-                    <div class="flex-1">
-                        <label for="offset-y-slider" style="font-weight: bold; color: #555; font-size: 14px;">
-                            ↕️ 垂直偏移: <span id="offset-y-value" style="color: var(--primary-color);">0%</span>
-                        </label>
-                        <input type="range" id="offset-y-slider" min="-100" max="100" value="0" style="width: 100%; margin-top: 5px; cursor: pointer;">
-                    </div>
-                </div>
-            </div>
-
-            <div class="control-panel" style="background-color: #fffde7; border: 1px dashed #fbc02d; margin-bottom: 0;">
-                <h4 style="margin-top: 0; color: #f57f17;">🖍️ 添加可爱画风文字 (可选)</h4>
-                <div class="flex-row" style="margin-bottom: 15px;">
-                    <div style="flex: 3;"><input type="text" id="overlay-text" placeholder="输入文字..." /></div>
-                    <div><input type="color" id="text-color" value="#ff5722"></div>
-                </div>
-                <div class="flex-row">
-                    <div class="flex-1">
-                        <label for="text-size-slider" style="font-size: 13px; color: #666;">📝 大小: <span id="text-size-value">36</span>px</label>
-                        <input type="range" id="text-size-slider" min="10" max="120" value="36" style="width: 100%; cursor: pointer;">
-                    </div>
-                    <div class="flex-1">
-                        <label for="text-x-slider" style="font-size: 13px; color: #666;">↔️ 左右</label>
-                        <input type="range" id="text-x-slider" min="0" max="240" value="120" style="width: 100%; cursor: pointer;">
-                    </div>
-                    <div class="flex-1">
-                        <label for="text-y-slider" style="font-size: 13px; color: #666;">↕️ 上下</label>
-                        <input type="range" id="text-y-slider" min="0" max="240" value="200" style="width: 100%; cursor: pointer;">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="controls">
-        <span id="status-text">已处理: 0 张 | 已选: 0 张</span>
-        <div class="btn-group">
-            <button id="ai-rename-btn" class="ai-btn" disabled>✨ AI 智能重命名</button>
-            <button id="select-all-btn" class="secondary" disabled>全选</button>
-            <button id="download-btn" disabled>下载选中</button>
-        </div>
-    </div>
-
-    <div id="preview-container"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script>
         const TARGET_SIZE = 240;
-        let processedFiles = [], activePreviewData = null;
-        let segmentImg = null, segmentBoxes = [], isDrawing = false, startX, startY, selectedBoxIndex = -1, dragMode = null;
+        const MIN_BOX_SIZE = 12;
 
-        const dropZone = document.getElementById('drop-zone'), fileInput = document.getElementById('file-input');
-        const segmentationCanvas = document.getElementById('segmentation-canvas'), segmentCtx = segmentationCanvas.getContext('2d');
-        const paddingSlider = document.getElementById('padding-slider'), offsetXSlider = document.getElementById('offset-x-slider'), offsetYSlider = document.getElementById('offset-y-slider');
-        const overlayText = document.getElementById('overlay-text'), textColor = document.getElementById('text-color'), textSizeSlider = document.getElementById('text-size-slider'), textXSlider = document.getElementById('text-x-slider'), textYSlider = document.getElementById('text-y-slider');
+        const state = {
+            files: [],
+            activeId: null,
+            renderToken: 0,
+            livePreviewUrl: null,
+            segment: {
+                image: null,
+                boxes: [],
+                selectedIndex: -1,
+                isPointerDown: false,
+                mode: null,
+                startX: 0,
+                startY: 0,
+                draftBox: null
+            }
+        };
 
-        [paddingSlider, offsetXSlider, offsetYSlider, overlayText, textColor, textSizeSlider, textXSlider, textYSlider].forEach(el => el?.addEventListener('input', () => scheduleUpdate()));
-        function scheduleUpdate() { requestAnimationFrame(updateAllPreviews); }
+        const $ = (selector) => document.querySelector(selector);
+        const elements = {
+            dropZone: $("#drop-zone"),
+            fileInput: $("#file-input"),
+            segmentDropZone: $("#segment-drop-zone"),
+            segmentFileInput: $("#segment-file-input"),
+            segmentationSection: $("#segmentation-section"),
+            segmentationCanvas: $("#segmentation-canvas"),
+            cancelSegmentBtn: $("#cancel-segment-btn"),
+            processSegmentBtn: $("#process-segment-btn"),
+            previewContainer: $("#preview-container"),
+            statusText: $("#status-text"),
+            activeFile: $("#active-file"),
+            livePreviewImg: $("#live-preview-img"),
+            livePreviewPlaceholder: $("#live-preview-placeholder"),
+            downloadBtn: $("#download-btn"),
+            selectAllBtn: $("#select-all-btn"),
+            clearBtn: $("#clear-btn"),
+            aiRenameBtn: $("#ai-rename-btn"),
+            resetAdjustBtn: $("#reset-adjust-btn"),
+            toast: $("#toast"),
+            controls: {
+                padding: $("#padding-slider"),
+                offsetX: $("#offset-x-slider"),
+                offsetY: $("#offset-y-slider"),
+                text: $("#overlay-text"),
+                textColor: $("#text-color"),
+                textSize: $("#text-size-slider"),
+                textX: $("#text-x-slider"),
+                textY: $("#text-y-slider")
+            },
+            labels: {
+                padding: $("#padding-value"),
+                offsetX: $("#offset-x-value"),
+                offsetY: $("#offset-y-value"),
+                textSize: $("#text-size-value"),
+                textX: $("#text-x-value"),
+                textY: $("#text-y-value")
+            }
+        };
 
-        dropZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => Array.from(e.target.files).forEach(f => processImage(f)));
+        const segmentCtx = elements.segmentationCanvas.getContext("2d");
 
-        function getResizeHandle(x, y, b) {
-            if (!b) return null;
-            const s = 10;
-            if (Math.abs(x - b.x) < s && Math.abs(y - b.y) < s) return 'TL'; if (Math.abs(x - (b.x + b.w)) < s && Math.abs(y - b.y) < s) return 'TR';
-            if (Math.abs(x - (b.x + b.w)) < s && Math.abs(y - (b.y + b.h)) < s) return 'BR'; if (Math.abs(x - b.x) < s && Math.abs(y - (b.y + b.h)) < s) return 'BL';
-            return null;
+        function uid() {
+            return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
         }
 
-        segmentationCanvas.addEventListener('mousedown', (e) => {
-            const rect = segmentationCanvas.getBoundingClientRect(), x = (e.clientX - rect.left) * (segmentationCanvas.width / rect.width), y = (e.clientY - rect.top) * (segmentationCanvas.height / rect.height);
-            startX = x; startY = y;
-            if (selectedBoxIndex !== -1 && segmentBoxes[selectedBoxIndex]) {
-                const h = getResizeHandle(x, y, segmentBoxes[selectedBoxIndex]);
-                if (h) { dragMode = `resize-${h}`; isDrawing = true; return; }
-            }
-            let clicked = -1;
-            for (let i = segmentBoxes.length - 1; i >= 0; i--) { if (x >= segmentBoxes[i].x && x <= segmentBoxes[i].x + segmentBoxes[i].w && y >= segmentBoxes[i].y && y <= segmentBoxes[i].y + segmentBoxes[i].h) { clicked = i; break; } }
-            if (clicked !== -1) { segmentBoxes.forEach((b, i) => b.selected = (i === clicked)); selectedBoxIndex = clicked; dragMode = 'move'; } else { segmentBoxes.forEach(b => b.selected = false); selectedBoxIndex = -1; dragMode = 'create'; }
-            isDrawing = true; drawSegmentationCanvas();
-        });
+        function formatBytes(bytes) {
+            if (!bytes) return "0 B";
+            const units = ["B", "KB", "MB", "GB"];
+            const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+            return `${(bytes / Math.pow(1024, index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+        }
 
-        segmentationCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            const rect = segmentationCanvas.getBoundingClientRect(), x = (e.clientX - rect.left) * (segmentationCanvas.width / rect.width), y = (e.clientY - rect.top) * (segmentationCanvas.height / rect.height);
-            if (dragMode === 'move' && selectedBoxIndex !== -1) { segmentBoxes[selectedBoxIndex].x += x - startX; segmentBoxes[selectedBoxIndex].y += y - startY; startX = x; startY = y; }
-            else if (dragMode?.startsWith('resize') && selectedBoxIndex !== -1) {
-                const b = segmentBoxes[selectedBoxIndex], h = dragMode.split('-')[1];
-                if (h.includes('T')) { b.h += b.y - y; b.y = y; } if (h.includes('B')) b.h = y - b.y;
-                if (h.includes('L')) { b.w += b.x - x; b.x = x; } if (h.includes('R')) b.w = x - b.x;
-            }
-            drawSegmentationCanvas();
-        });
+        function safeName(name) {
+            const base = name.replace(/\.[^.]+$/, "") || "image";
+            return base.replace(/[\\/:*?"<>|]+/g, "-").trim() || "image";
+        }
 
-        segmentationCanvas.addEventListener('mouseup', () => { isDrawing = false; dragMode = null; drawSegmentationCanvas(); });
+        function showToast(message) {
+            elements.toast.textContent = message;
+            elements.toast.classList.add("show");
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => elements.toast.classList.remove("show"), 1800);
+        }
 
-        function drawSegmentationCanvas() {
-            segmentCtx.clearRect(0, 0, segmentationCanvas.width, segmentationCanvas.height);
-            segmentCtx.drawImage(segmentImg, 0, 0);
-            segmentCtx.fillStyle = 'rgba(0,0,0,0.4)'; segmentCtx.fillRect(0,0,segmentationCanvas.width,segmentationCanvas.height);
-            segmentBoxes.forEach(box => {
-                segmentCtx.clearRect(box.x, box.y, box.w, box.h);
-                segmentCtx.drawImage(segmentImg, box.x, box.y, box.w, box.h, box.x, box.y, box.w, box.h);
-                segmentCtx.strokeStyle = box.selected ? '#FFEB3B' : '#4CAF50';
-                segmentCtx.strokeRect(box.x, box.y, box.w, box.h);
+        function setupDropZone(zone, input, onFiles) {
+            zone.addEventListener("click", () => input.click());
+            zone.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    input.click();
+                }
+            });
+            input.addEventListener("change", () => {
+                onFiles(Array.from(input.files || []));
+                input.value = "";
+            });
+
+            ["dragenter", "dragover"].forEach((type) => {
+                zone.addEventListener(type, (event) => {
+                    event.preventDefault();
+                    zone.classList.add("hover");
+                });
+            });
+            ["dragleave", "drop"].forEach((type) => {
+                zone.addEventListener(type, (event) => {
+                    event.preventDefault();
+                    zone.classList.remove("hover");
+                });
+            });
+            zone.addEventListener("drop", (event) => {
+                const files = Array.from(event.dataTransfer.files || []).filter((file) => file.type.startsWith("image/"));
+                onFiles(files);
             });
         }
 
-        function processImage(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const data = { id: 'img_' + Date.now(), img, selected: true };
-                    processedFiles.push(data);
-                    activePreviewData = activePreviewData || data;
-                    renderPreviewItem(data);
-                    scheduleUpdate();
+        function readImageFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error("文件读取失败"));
+                reader.onload = () => {
+                    const image = new Image();
+                    image.onerror = () => reject(new Error("图片加载失败"));
+                    image.onload = () => resolve(image);
+                    image.src = reader.result;
                 };
-                img.src = e.target.result;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function addFiles(files) {
+            const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+            if (!imageFiles.length) {
+                showToast("没有发现可处理的图片文件");
+                return;
+            }
+
+            for (const file of imageFiles) {
+                try {
+                    const image = await readImageFile(file);
+                    const item = {
+                        id: uid(),
+                        name: file.name,
+                        size: file.size,
+                        image,
+                        selected: true,
+                        previewUrl: null,
+                        blob: null
+                    };
+                    state.files.push(item);
+                    if (!state.activeId) state.activeId = item.id;
+                } catch (error) {
+                    console.warn(error);
+                    showToast(`${file.name} 加载失败`);
+                }
+            }
+
+            renderPreviewList();
+            updateStatus();
+            scheduleRenderAll();
+        }
+
+        function getControlValues() {
+            return {
+                padding: Number(elements.controls.padding.value) / 100,
+                offsetX: Number(elements.controls.offsetX.value) / 100,
+                offsetY: Number(elements.controls.offsetY.value) / 100,
+                text: elements.controls.text.value.trim(),
+                textColor: elements.controls.textColor.value,
+                textSize: Number(elements.controls.textSize.value),
+                textX: Number(elements.controls.textX.value),
+                textY: Number(elements.controls.textY.value)
             };
-            reader.readAsDataURL(file);
         }
 
-        function renderImageData(fileData, onComplete) {
-            const canvas = document.createElement('canvas'); canvas.width = canvas.height = TARGET_SIZE;
-            const ctx = canvas.getContext('2d');
-            const padP = parseInt(paddingSlider.value)/100, offXP = parseInt(offsetXSlider.value)/100, offYP = parseInt(offsetYSlider.value)/100;
-            ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,TARGET_SIZE,TARGET_SIZE);
-            const scale = Math.min((TARGET_SIZE*(1-padP*2))/fileData.img.width, (TARGET_SIZE*(1-padP*2))/fileData.img.height);
-            ctx.drawImage(fileData.img, (TARGET_SIZE-fileData.img.width*scale)/2 + (TARGET_SIZE/2*offXP), (TARGET_SIZE-fileData.img.height*scale)/2 + (TARGET_SIZE/2*offYP), fileData.img.width*scale, fileData.img.height*scale);
-            if (overlayText.value.trim()) {
-                ctx.font = `bold ${textSizeSlider.value}px 'ZCOOL KuaiLe'`; ctx.fillStyle = textColor.value;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(overlayText.value, textXSlider.value, textYSlider.value);
+        async function renderImageData(item) {
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
             }
-            canvas.toBlob(onComplete, 'image/png');
+
+            const values = getControlValues();
+            const canvas = document.createElement("canvas");
+            canvas.width = TARGET_SIZE;
+            canvas.height = TARGET_SIZE;
+            const ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+
+            const drawableSize = TARGET_SIZE * Math.max(0.05, 1 - values.padding * 2);
+            const scale = Math.min(drawableSize / item.image.width, drawableSize / item.image.height);
+            const width = item.image.width * scale;
+            const height = item.image.height * scale;
+            const x = (TARGET_SIZE - width) / 2 + (TARGET_SIZE / 2) * values.offsetX;
+            const y = (TARGET_SIZE - height) / 2 + (TARGET_SIZE / 2) * values.offsetY;
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(item.image, x, y, width, height);
+
+            if (values.text) {
+                ctx.font = `700 ${values.textSize}px "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif`;
+                ctx.fillStyle = values.textColor;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.lineJoin = "round";
+                ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                ctx.lineWidth = Math.max(2, values.textSize / 12);
+                ctx.strokeText(values.text, values.textX, values.textY);
+                ctx.fillText(values.text, values.textX, values.textY);
+            }
+
+            return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
         }
 
-        function renderPreviewItem(fileData) {
-            const div = document.createElement('div');
-            div.className = 'preview-item selected';
-            div.innerHTML = `<img src="" alt="preview">`;
-            div.addEventListener('click', () => { activePreviewData = fileData; scheduleUpdate(); });
-            document.getElementById('preview-container').appendChild(div);
+        function scheduleRenderAll() {
+            state.renderToken += 1;
+            const token = state.renderToken;
+            requestAnimationFrame(() => renderAll(token));
+            syncControlLabels();
         }
 
-        function updateAllPreviews() {
-            if (activePreviewData) {
-                renderImageData(activePreviewData, (blob) => {
-                    const img = document.getElementById('live-preview-img');
-                    img.src = URL.createObjectURL(blob); img.style.display = 'block';
-                    document.getElementById('live-preview-placeholder').style.display = 'none';
+        async function renderAll(token) {
+            for (const item of state.files) {
+                if (token !== state.renderToken) return;
+                const blob = await renderImageData(item);
+                if (!blob) continue;
+                if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                item.blob = blob;
+                item.previewUrl = URL.createObjectURL(blob);
+                updatePreviewItem(item);
+            }
+            updateLivePreview();
+        }
+
+        function renderPreviewList() {
+            elements.previewContainer.innerHTML = "";
+            if (!state.files.length) {
+                elements.previewContainer.innerHTML = '<div class="empty-state">还没有图片。先从上方上传入口添加图片。</div>';
+                return;
+            }
+
+            state.files.forEach((item) => {
+                const card = document.createElement("article");
+                card.className = "preview-item";
+                card.dataset.id = item.id;
+                card.innerHTML = `
+                    <div class="thumb"><img alt="${item.name}"></div>
+                    <div class="meta">
+                        <span class="filename" title="${item.name}">${item.name}</span>
+                        <span class="filesize">${formatBytes(item.size)}</span>
+                    </div>
+                    <button class="single-download-btn" type="button">下载这张</button>
+                `;
+                card.addEventListener("click", () => {
+                    state.activeId = item.id;
+                    item.selected = !item.selected;
+                    renderPreviewList();
+                    updateStatus();
+                    updateLivePreview();
                 });
-            }
+                card.querySelector(".single-download-btn").addEventListener("click", (event) => {
+                    event.stopPropagation();
+                    downloadItem(item);
+                });
+                elements.previewContainer.appendChild(card);
+                updatePreviewItem(item);
+            });
         }
+
+        function updatePreviewItem(item) {
+            const card = elements.previewContainer.querySelector(`[data-id="${item.id}"]`);
+            if (!card) return;
+            card.classList.toggle("selected", item.selected);
+            card.classList.toggle("active", item.id === state.activeId);
+            const img = card.querySelector("img");
+            if (item.previewUrl && img.src !== item.previewUrl) img.src = item.previewUrl;
+        }
+
+        function updateLivePreview() {
+            const active = state.files.find((item) => item.id === state.activeId) || state.files[0];
+            if (!active || !active.previewUrl) {
+                elements.livePreviewImg.style.display = "none";
+                elements.livePreviewPlaceholder.style.display = "block";
+                elements.activeFile.textContent = "";
+                return;
+            }
+
+            if (state.livePreviewUrl) URL.revokeObjectURL(state.livePreviewUrl);
+            state.livePreviewUrl = URL.createObjectURL(active.blob);
+            elements.livePreviewImg.src = state.livePreviewUrl;
+            elements.livePreviewImg.style.display = "block";
+            elements.livePreviewPlaceholder.style.display = "none";
+            elements.activeFile.textContent = active.name;
+        }
+
+        function updateStatus() {
+            const selectedCount = state.files.filter((item) => item.selected).length;
+            const hasFiles = state.files.length > 0;
+            elements.statusText.textContent = `已处理：${state.files.length} 张 | 已选：${selectedCount} 张`;
+            elements.downloadBtn.disabled = selectedCount === 0;
+            elements.selectAllBtn.disabled = !hasFiles;
+            elements.clearBtn.disabled = !hasFiles;
+            elements.aiRenameBtn.disabled = true;
+            elements.selectAllBtn.textContent = selectedCount === state.files.length && hasFiles ? "取消全选" : "全选";
+        }
+
+        function syncControlLabels() {
+            elements.labels.padding.textContent = `${elements.controls.padding.value}%`;
+            elements.labels.offsetX.textContent = `${elements.controls.offsetX.value}%`;
+            elements.labels.offsetY.textContent = `${elements.controls.offsetY.value}%`;
+            elements.labels.textSize.textContent = elements.controls.textSize.value;
+            elements.labels.textX.textContent = elements.controls.textX.value;
+            elements.labels.textY.textContent = elements.controls.textY.value;
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        async function downloadItem(item) {
+            const blob = item.blob || await renderImageData(item);
+            downloadBlob(blob, `${safeName(item.name)}_240x240.png`);
+        }
+
+        async function downloadSelected() {
+            const selected = state.files.filter((item) => item.selected);
+            if (!selected.length) return;
+            for (const item of selected) {
+                await downloadItem(item);
+                await new Promise((resolve) => setTimeout(resolve, 140));
+            }
+            showToast(`已开始下载 ${selected.length} 张图片`);
+        }
+
+        function clearFiles() {
+            state.files.forEach((item) => {
+                if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+            });
+            if (state.livePreviewUrl) URL.revokeObjectURL(state.livePreviewUrl);
+            state.files = [];
+            state.activeId = null;
+            state.livePreviewUrl = null;
+            renderPreviewList();
+            updateStatus();
+            updateLivePreview();
+        }
+
+        function resetAdjustments() {
+            elements.controls.padding.value = 0;
+            elements.controls.offsetX.value = 0;
+            elements.controls.offsetY.value = 0;
+            elements.controls.text.value = "";
+            elements.controls.textColor.value = "#ff5722";
+            elements.controls.textSize.value = 36;
+            elements.controls.textX.value = 120;
+            elements.controls.textY.value = 200;
+            scheduleRenderAll();
+        }
+
+        function setupSegmentation(files) {
+            const file = files.find((item) => item.type.startsWith("image/"));
+            if (!file) {
+                showToast("请上传一张图片用于切割");
+                return;
+            }
+
+            readImageFile(file).then((image) => {
+                state.segment.image = image;
+                state.segment.boxes = [];
+                state.segment.selectedIndex = -1;
+                elements.segmentationCanvas.width = image.width;
+                elements.segmentationCanvas.height = image.height;
+                elements.segmentationSection.style.display = "block";
+                drawSegmentationCanvas();
+            }).catch(() => showToast("切割图片加载失败"));
+        }
+
+        function getCanvasPoint(event) {
+            const rect = elements.segmentationCanvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left) * (elements.segmentationCanvas.width / rect.width),
+                y: (event.clientY - rect.top) * (elements.segmentationCanvas.height / rect.height)
+            };
+        }
+
+        function normalizeBox(box) {
+            const x = Math.min(box.x, box.x + box.w);
+            const y = Math.min(box.y, box.y + box.h);
+            const w = Math.abs(box.w);
+            const h = Math.abs(box.h);
+            return { x, y, w, h };
+        }
+
+        function clampBox(box) {
+            const image = state.segment.image;
+            const normalized = normalizeBox(box);
+            const x = Math.max(0, Math.min(normalized.x, image.width - MIN_BOX_SIZE));
+            const y = Math.max(0, Math.min(normalized.y, image.height - MIN_BOX_SIZE));
+            const w = Math.max(MIN_BOX_SIZE, Math.min(normalized.w, image.width - x));
+            const h = Math.max(MIN_BOX_SIZE, Math.min(normalized.h, image.height - y));
+            return { x, y, w, h };
+        }
+
+        function hitHandle(point, box) {
+            const size = 12;
+            const handles = [
+                ["tl", box.x, box.y],
+                ["tr", box.x + box.w, box.y],
+                ["br", box.x + box.w, box.y + box.h],
+                ["bl", box.x, box.y + box.h]
+            ];
+            const hit = handles.find(([, x, y]) => Math.abs(point.x - x) <= size && Math.abs(point.y - y) <= size);
+            return hit ? hit[0] : null;
+        }
+
+        function hitBox(point) {
+            for (let index = state.segment.boxes.length - 1; index >= 0; index -= 1) {
+                const box = state.segment.boxes[index];
+                if (point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h) {
+                    return index;
+                }
+            }
+            return -1;
+        }
+
+        function drawSegmentationCanvas() {
+            const image = state.segment.image;
+            if (!image) return;
+
+            segmentCtx.clearRect(0, 0, elements.segmentationCanvas.width, elements.segmentationCanvas.height);
+            segmentCtx.drawImage(image, 0, 0);
+            segmentCtx.fillStyle = "rgba(17, 24, 20, 0.45)";
+            segmentCtx.fillRect(0, 0, elements.segmentationCanvas.width, elements.segmentationCanvas.height);
+
+            const boxes = state.segment.draftBox
+                ? [...state.segment.boxes, clampBox(state.segment.draftBox)]
+                : state.segment.boxes;
+
+            boxes.forEach((box, index) => {
+                const isSelected = index === state.segment.selectedIndex || index === boxes.length - 1 && state.segment.draftBox;
+                segmentCtx.save();
+                segmentCtx.beginPath();
+                segmentCtx.rect(box.x, box.y, box.w, box.h);
+                segmentCtx.clip();
+                segmentCtx.drawImage(image, 0, 0);
+                segmentCtx.restore();
+                segmentCtx.strokeStyle = isSelected ? "#f4d03f" : "#42d27d";
+                segmentCtx.lineWidth = isSelected ? 4 : 3;
+                segmentCtx.strokeRect(box.x, box.y, box.w, box.h);
+
+                if (isSelected) {
+                    segmentCtx.fillStyle = "#f4d03f";
+                    [[box.x, box.y], [box.x + box.w, box.y], [box.x + box.w, box.y + box.h], [box.x, box.y + box.h]]
+                        .forEach(([x, y]) => segmentCtx.fillRect(x - 5, y - 5, 10, 10));
+                }
+            });
+        }
+
+        function onSegmentPointerDown(event) {
+            if (!state.segment.image) return;
+            const point = getCanvasPoint(event);
+            state.segment.isPointerDown = true;
+            state.segment.startX = point.x;
+            state.segment.startY = point.y;
+            state.segment.draftBox = null;
+
+            const selected = state.segment.boxes[state.segment.selectedIndex];
+            const handle = selected ? hitHandle(point, selected) : null;
+            if (handle) {
+                state.segment.mode = `resize-${handle}`;
+                return;
+            }
+
+            const index = hitBox(point);
+            state.segment.selectedIndex = index;
+            state.segment.mode = index >= 0 ? "move" : "create";
+            drawSegmentationCanvas();
+        }
+
+        function onSegmentPointerMove(event) {
+            if (!state.segment.isPointerDown || !state.segment.image) return;
+            const point = getCanvasPoint(event);
+            const dx = point.x - state.segment.startX;
+            const dy = point.y - state.segment.startY;
+
+            if (state.segment.mode === "create") {
+                state.segment.draftBox = { x: state.segment.startX, y: state.segment.startY, w: dx, h: dy };
+            } else if (state.segment.mode === "move" && state.segment.selectedIndex >= 0) {
+                const box = state.segment.boxes[state.segment.selectedIndex];
+                state.segment.boxes[state.segment.selectedIndex] = clampBox({ ...box, x: box.x + dx, y: box.y + dy });
+                state.segment.startX = point.x;
+                state.segment.startY = point.y;
+            } else if (state.segment.mode && state.segment.mode.startsWith("resize") && state.segment.selectedIndex >= 0) {
+                const box = { ...state.segment.boxes[state.segment.selectedIndex] };
+                const handle = state.segment.mode.replace("resize-", "");
+                if (handle.includes("t")) {
+                    box.h += box.y - point.y;
+                    box.y = point.y;
+                }
+                if (handle.includes("b")) box.h = point.y - box.y;
+                if (handle.includes("l")) {
+                    box.w += box.x - point.x;
+                    box.x = point.x;
+                }
+                if (handle.includes("r")) box.w = point.x - box.x;
+                state.segment.boxes[state.segment.selectedIndex] = clampBox(box);
+            }
+
+            drawSegmentationCanvas();
+        }
+
+        function onSegmentPointerUp() {
+            if (!state.segment.isPointerDown) return;
+            state.segment.isPointerDown = false;
+
+            if (state.segment.draftBox) {
+                const box = clampBox(state.segment.draftBox);
+                if (box.w >= MIN_BOX_SIZE && box.h >= MIN_BOX_SIZE) {
+                    state.segment.boxes.push(box);
+                    state.segment.selectedIndex = state.segment.boxes.length - 1;
+                }
+            }
+
+            state.segment.mode = null;
+            state.segment.draftBox = null;
+            drawSegmentationCanvas();
+        }
+
+        async function processSegmentBoxes() {
+            const image = state.segment.image;
+            const boxes = state.segment.boxes;
+            if (!image || !boxes.length) {
+                showToast("请先在图片上框选至少一个区域");
+                return;
+            }
+
+            const generated = boxes.map((box, index) => {
+                const canvas = document.createElement("canvas");
+                canvas.width = box.w;
+                canvas.height = box.h;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(image, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+                const cropped = new Image();
+                cropped.src = canvas.toDataURL("image/png");
+                return new Promise((resolve) => {
+                    cropped.onload = () => resolve({
+                        id: uid(),
+                        name: `segment_${index + 1}.png`,
+                        size: 0,
+                        image: cropped,
+                        selected: true,
+                        previewUrl: null,
+                        blob: null
+                    });
+                });
+            });
+
+            state.files.push(...await Promise.all(generated));
+            if (!state.activeId && state.files[0]) state.activeId = state.files[0].id;
+            closeSegmentation();
+            renderPreviewList();
+            updateStatus();
+            scheduleRenderAll();
+            showToast(`已添加 ${boxes.length} 个切割区域`);
+        }
+
+        function closeSegmentation() {
+            state.segment.image = null;
+            state.segment.boxes = [];
+            state.segment.selectedIndex = -1;
+            state.segment.draftBox = null;
+            elements.segmentationSection.style.display = "none";
+            segmentCtx.clearRect(0, 0, elements.segmentationCanvas.width, elements.segmentationCanvas.height);
+        }
+
+        setupDropZone(elements.dropZone, elements.fileInput, addFiles);
+        setupDropZone(elements.segmentDropZone, elements.segmentFileInput, setupSegmentation);
+
+        Object.values(elements.controls).forEach((control) => control.addEventListener("input", scheduleRenderAll));
+        elements.resetAdjustBtn.addEventListener("click", resetAdjustments);
+        elements.downloadBtn.addEventListener("click", downloadSelected);
+        elements.clearBtn.addEventListener("click", clearFiles);
+        elements.selectAllBtn.addEventListener("click", () => {
+            const shouldSelect = state.files.some((item) => !item.selected);
+            state.files.forEach((item) => item.selected = shouldSelect);
+            renderPreviewList();
+            updateStatus();
+        });
+        elements.aiRenameBtn.addEventListener("click", () => showToast("AI 重命名需要接入接口，已先保留入口"));
+
+        elements.segmentationCanvas.addEventListener("mousedown", onSegmentPointerDown);
+        window.addEventListener("mousemove", onSegmentPointerMove);
+        window.addEventListener("mouseup", onSegmentPointerUp);
+        elements.cancelSegmentBtn.addEventListener("click", closeSegmentation);
+        elements.processSegmentBtn.addEventListener("click", processSegmentBoxes);
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "Delete" && state.segment.selectedIndex >= 0) {
+                state.segment.boxes.splice(state.segment.selectedIndex, 1);
+                state.segment.selectedIndex = -1;
+                drawSegmentationCanvas();
+            }
+        });
+
+        syncControlLabels();
+        updateStatus();
     </script>
 </body>
 </html>
