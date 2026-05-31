@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片批量处理工具 (240x240)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        #drop-zone {
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            font-size: 18px;
+            color: #888;
+            background-color: #fff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        #drop-zone.hover {
+            border-color: var(--primary-color);
+            background-color: #e8f5e9;
+            color: var(--primary-color);
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .preview-item {
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .preview-item img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #eee;
+            background: #f9f9f9;
+        }
+        .preview-item span {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #555;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>📦 图片批量处理工具</h2>
+    <p class="subtitle">拖入图片自动居中缩放、四周留白、导出 240x240 PNG (自动限制在 500KB 内)</p>
+
+    <div id="drop-zone">
+        将图片 (PNG, JPG, GIF 等) 拖拽到此区域，或点击选择图片
+        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+    </div>
+
+    <div class="controls">
+        <span id="status-text">已处理: 0 张图片</span>
+        <button id="download-btn" disabled>批量下载 ZIP</button>
+    </div>
+
+    <div id="preview-container"></div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewContainer = document.getElementById('preview-container');
+        const downloadBtn = document.getElementById('download-btn');
+        const statusText = document.getElementById('status-text');
+        
+        let processedFiles = []; // 存储处理后的 Blob 对象
+        const TARGET_SIZE = 240;
+
+        // 点击上传支持
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        // 拖拽事件支持
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('hover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('hover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('hover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                processImage(file);
+            });
+            // 清空 input，以便可以重复上传相同文件
+            fileInput.value = '';
+        }
+
+        function processImage(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // 创建 Canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = TARGET_SIZE;
+                    canvas.height = TARGET_SIZE;
+                    const ctx = canvas.getContext('2d');
+
+                    // 1. 填充白色背景
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+
+                    // 2. 计算居中缩放比例 (等比缩放，不超过边界)
+                    const scale = Math.min(TARGET_SIZE / img.width, TARGET_SIZE / img.height);
+                    const drawWidth = img.width * scale;
+                    const drawHeight = img.height * scale;
+                    
+                    // 3. 计算居中坐标
+                    const x = (TARGET_SIZE - drawWidth) / 2;
+                    const y = (TARGET_SIZE - drawHeight) / 2;
+
+                    // 4. 将图片绘制到 Canvas
+                    ctx.drawImage(img, x, y, drawWidth, drawHeight);
+
+                    // 5. 导出为 PNG Blob (240x240 PNG 必然远小于 500KB)
+                    canvas.toBlob(function(blob) {
+                        if(!blob) return;
+
+                        // 统一修改后缀为 .png
+                        const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                        const newFileName = `${originalName}_240x240.png`;
+
+                        // 存储到待下载列表
+                        processedFiles.push({
+                            name: newFileName,
+                            blob: blob
+                        });
+
+                        // 更新 UI
+                        updateUI(newFileName, blob);
+                    }, 'image/png');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateUI(fileName, blob) {
+            statusText.innerText = `已处理: ${processedFiles.length} 张图片`;
+            downloadBtn.disabled = processedFiles.length === 0;
+
+            // 生成预览卡片
+            const url = URL.createObjectURL(blob);
+            const div = document.createElement('div');
+            div.className = 'preview-item';
+            
+            const sizeKB = (blob.size / 1024).toFixed(1);
+            
+            div.innerHTML = `
+                <img src="${url}" alt="preview">
+                <span title="${fileName}">${fileName}</span>
+                <span style="color:#888;">${sizeKB} KB</span>
+            `;
+            previewContainer.appendChild(div);
+        }
+
+        // 批量下载 ZIP
+        downloadBtn.addEventListener('click', () => {
+            if (processedFiles.length === 0) return;
+            
+            downloadBtn.innerText = "打包中...";
+            downloadBtn.disabled = true;
+
+            const zip = new JSZip();
+            
+            processedFiles.forEach(fileData => {
+                zip.file(fileData.name, fileData.blob);
+            });
+
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                // 触发下载
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `Processed_Images_240x240_${new Date().getTime()}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                downloadBtn.innerText = "批量下载 ZIP";
+                downloadBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
