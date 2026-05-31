@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片批量处理工具</title>
-    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Long+Cang&family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #2f7d57;
@@ -303,6 +303,22 @@
             border-color: var(--primary);
         }
 
+        select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            background: #fff;
+            color: var(--text);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: 2px solid rgba(47, 125, 87, 0.18);
+            border-color: var(--primary);
+        }
+
         input[type="color"] {
             width: 44px;
             height: 40px;
@@ -326,6 +342,14 @@
             color: var(--warning);
             font-size: 15px;
             white-space: nowrap;
+        }
+
+        .font-preview {
+            margin-top: 10px;
+            color: #6d5831;
+            font-size: 20px;
+            line-height: 1.35;
+            word-break: break-word;
         }
 
         .toolbar {
@@ -643,6 +667,17 @@
                         <input type="text" id="overlay-text" placeholder="输入文字，可留空">
                         <input type="color" id="text-color" value="#ff5722" aria-label="文字颜色">
                     </div>
+                    <div class="field" style="margin-bottom: 14px;">
+                        <label for="text-font-select">文字风格</label>
+                        <select id="text-font-select">
+                            <option value="ZCOOL KuaiLe" data-preview="Happy doodle 123">英文可爱手写</option>
+                            <option value="Ma Shan Zheng" data-preview="今天也要开心呀">中文稚嫩手写</option>
+                            <option value="Long Cang" data-preview="像小朋友写的字">中文童趣长笔画</option>
+                            <option value="Zhi Mang Xing" data-preview="软软的手写感">中文随性手写</option>
+                            <option value="Microsoft YaHei" data-preview="清晰默认字体">清晰默认字体</option>
+                        </select>
+                        <div id="font-preview" class="font-preview">Happy doodle 123</div>
+                    </div>
                     <div class="field-grid three">
                         <div class="field">
                             <label for="text-size-slider">大小：<span id="text-size-value">36</span>px</label>
@@ -714,6 +749,7 @@
             activeFile: $("#active-file"),
             livePreviewImg: $("#live-preview-img"),
             livePreviewPlaceholder: $("#live-preview-placeholder"),
+            fontPreview: $("#font-preview"),
             downloadBtn: $("#download-btn"),
             selectAllBtn: $("#select-all-btn"),
             clearBtn: $("#clear-btn"),
@@ -726,6 +762,7 @@
                 offsetY: $("#offset-y-slider"),
                 text: $("#overlay-text"),
                 textColor: $("#text-color"),
+                textFont: $("#text-font-select"),
                 textSize: $("#text-size-slider"),
                 textX: $("#text-x-slider"),
                 textY: $("#text-y-slider")
@@ -849,6 +886,7 @@
                 offsetY: Number(elements.controls.offsetY.value) / 100,
                 text: elements.controls.text.value.trim(),
                 textColor: elements.controls.textColor.value,
+                textFont: elements.controls.textFont.value,
                 textSize: Number(elements.controls.textSize.value),
                 textX: Number(elements.controls.textX.value),
                 textY: Number(elements.controls.textY.value)
@@ -881,7 +919,7 @@
             ctx.drawImage(item.image, x, y, width, height);
 
             if (values.text) {
-                ctx.font = `700 ${values.textSize}px "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif`;
+                ctx.font = `700 ${values.textSize}px "${values.textFont}", "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif`;
                 ctx.fillStyle = values.textColor;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
@@ -994,6 +1032,9 @@
             elements.labels.textSize.textContent = elements.controls.textSize.value;
             elements.labels.textX.textContent = elements.controls.textX.value;
             elements.labels.textY.textContent = elements.controls.textY.value;
+            const selectedFont = elements.controls.textFont.selectedOptions[0];
+            elements.fontPreview.textContent = elements.controls.text.value.trim() || selectedFont.dataset.preview;
+            elements.fontPreview.style.fontFamily = `"${elements.controls.textFont.value}", "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif`;
         }
 
         function downloadBlob(blob, filename) {
@@ -1041,6 +1082,7 @@
             elements.controls.offsetY.value = 0;
             elements.controls.text.value = "";
             elements.controls.textColor.value = "#ff5722";
+            elements.controls.textFont.value = "ZCOOL KuaiLe";
             elements.controls.textSize.value = 36;
             elements.controls.textX.value = 120;
             elements.controls.textY.value = 200;
