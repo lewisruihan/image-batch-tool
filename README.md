@@ -3,6 +3,7 @@
 这是一款**免安装的纯前端网页工具**，专为快速生成 `240x240` 像素的标准 PNG 图片设计。最新版本集成了 AI 视觉切割、AI 智能重命名以及实时位置微调功能。
 
 网址在这里哦：https://lewisruihan.github.io/image-batch-tool/
+或者这个：https://image-batch-tool-red.vercel.app/
 
 ## ✨ 核心功能
 
