@@ -289,7 +289,8 @@
             cursor: pointer;
         }
 
-        input[type="text"] {
+        input[type="text"],
+        input[type="number"] {
             width: 100%;
             border: 1px solid var(--line);
             border-radius: var(--radius);
@@ -298,7 +299,8 @@
             color: var(--text);
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus,
+        input[type="number"]:focus {
             outline: 2px solid rgba(47, 125, 87, 0.18);
             border-color: var(--primary);
         }
@@ -592,7 +594,7 @@
                 <h1>图片批量处理工具</h1>
                 <p class="subtitle">统一尺寸、批量导出、自由微调，并可添加手写风格文字。</p>
             </div>
-            <div class="output-size">导出尺寸 <strong>240 x 240</strong></div>
+            <div class="output-size">导出尺寸 <strong id="output-size-text">240 x 240</strong></div>
         </header>
 
         <section class="upload-grid" aria-label="上传入口">
@@ -604,7 +606,7 @@
 
             <div id="segment-drop-zone" class="drop-zone segment" role="button" tabindex="0">
                 <div class="drop-title">多形象图片手动切割</div>
-                <div class="drop-copy">上传一张包含多个形象的图片后，在画布上框选区域，再统一处理为 240 x 240。</div>
+                <div class="drop-copy">上传一张包含多个形象的图片后，在画布上框选区域，再按当前导出尺寸统一处理。</div>
                 <input type="file" id="segment-file-input" accept="image/*">
             </div>
         </section>
@@ -641,6 +643,31 @@
                     <div class="control-title">
                         <span>图像位置与缩放</span>
                         <button id="reset-adjust-btn" class="secondary" type="button">重置</button>
+                    </div>
+                    <div class="field-grid three" style="margin-bottom: 14px;">
+                        <div class="field">
+                            <label for="size-preset-select">导出尺寸</label>
+                            <select id="size-preset-select">
+                                <option value="240">240 x 240</option>
+                                <option value="50">50 x 50</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="output-width-input">宽度 px</label>
+                            <input type="number" id="output-width-input" min="1" max="2048" value="240">
+                        </div>
+                        <div class="field">
+                            <label for="output-height-input">高度 px</label>
+                            <input type="number" id="output-height-input" min="1" max="2048" value="240">
+                        </div>
+                    </div>
+                    <div class="field" style="margin-bottom: 14px;">
+                        <label for="background-select">导出背景</label>
+                        <select id="background-select">
+                            <option value="white">白色背景</option>
+                            <option value="transparent">透明背景</option>
+                        </select>
                     </div>
                     <div class="field">
                         <label for="padding-slider">四周留白比例：<span id="padding-value">0%</span></label>
@@ -714,7 +741,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script>
-        const TARGET_SIZE = 240;
+        const DEFAULT_SIZE = 240;
         const MIN_BOX_SIZE = 12;
 
         const state = {
@@ -750,6 +777,7 @@
             livePreviewImg: $("#live-preview-img"),
             livePreviewPlaceholder: $("#live-preview-placeholder"),
             fontPreview: $("#font-preview"),
+            outputSizeText: $("#output-size-text"),
             downloadBtn: $("#download-btn"),
             selectAllBtn: $("#select-all-btn"),
             clearBtn: $("#clear-btn"),
@@ -757,6 +785,10 @@
             resetAdjustBtn: $("#reset-adjust-btn"),
             toast: $("#toast"),
             controls: {
+                sizePreset: $("#size-preset-select"),
+                outputWidth: $("#output-width-input"),
+                outputHeight: $("#output-height-input"),
+                background: $("#background-select"),
                 padding: $("#padding-slider"),
                 offsetX: $("#offset-x-slider"),
                 offsetY: $("#offset-y-slider"),
@@ -793,6 +825,19 @@
         function safeName(name) {
             const base = name.replace(/\.[^.]+$/, "") || "image";
             return base.replace(/[\\/:*?"<>|]+/g, "-").trim() || "image";
+        }
+
+        function clampDimension(value) {
+            const number = Number.parseInt(value, 10);
+            if (!Number.isFinite(number)) return DEFAULT_SIZE;
+            return Math.max(1, Math.min(2048, number));
+        }
+
+        function getOutputSize() {
+            return {
+                width: clampDimension(elements.controls.outputWidth.value),
+                height: clampDimension(elements.controls.outputHeight.value)
+            };
         }
 
         function showToast(message) {
@@ -880,7 +925,11 @@
         }
 
         function getControlValues() {
+            const outputSize = getOutputSize();
             return {
+                outputWidth: outputSize.width,
+                outputHeight: outputSize.height,
+                background: elements.controls.background.value,
                 padding: Number(elements.controls.padding.value) / 100,
                 offsetX: Number(elements.controls.offsetX.value) / 100,
                 offsetY: Number(elements.controls.offsetY.value) / 100,
@@ -900,19 +949,23 @@
 
             const values = getControlValues();
             const canvas = document.createElement("canvas");
-            canvas.width = TARGET_SIZE;
-            canvas.height = TARGET_SIZE;
+            canvas.width = values.outputWidth;
+            canvas.height = values.outputHeight;
             const ctx = canvas.getContext("2d");
 
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+            ctx.clearRect(0, 0, values.outputWidth, values.outputHeight);
+            if (values.background === "white") {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, values.outputWidth, values.outputHeight);
+            }
 
-            const drawableSize = TARGET_SIZE * Math.max(0.05, 1 - values.padding * 2);
-            const scale = Math.min(drawableSize / item.image.width, drawableSize / item.image.height);
+            const availableWidth = values.outputWidth * Math.max(0.05, 1 - values.padding * 2);
+            const availableHeight = values.outputHeight * Math.max(0.05, 1 - values.padding * 2);
+            const scale = Math.min(availableWidth / item.image.width, availableHeight / item.image.height);
             const width = item.image.width * scale;
             const height = item.image.height * scale;
-            const x = (TARGET_SIZE - width) / 2 + (TARGET_SIZE / 2) * values.offsetX;
-            const y = (TARGET_SIZE - height) / 2 + (TARGET_SIZE / 2) * values.offsetY;
+            const x = (values.outputWidth - width) / 2 + (values.outputWidth / 2) * values.offsetX;
+            const y = (values.outputHeight - height) / 2 + (values.outputHeight / 2) * values.offsetY;
 
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
@@ -999,6 +1052,7 @@
 
         function updateLivePreview() {
             const active = state.files.find((item) => item.id === state.activeId) || state.files[0];
+            updatePreviewBoxSize();
             if (!active || !active.previewUrl) {
                 elements.livePreviewImg.style.display = "none";
                 elements.livePreviewPlaceholder.style.display = "block";
@@ -1026,6 +1080,21 @@
         }
 
         function syncControlLabels() {
+            const size = getOutputSize();
+            const scale = Math.min(1, 240 / Math.max(size.width, size.height));
+            const previewWidth = Math.max(32, Math.round(size.width * scale));
+            const previewHeight = Math.max(32, Math.round(size.height * scale));
+            elements.outputSizeText.textContent = `${size.width} x ${size.height}`;
+            elements.controls.textX.max = size.width;
+            elements.controls.textY.max = size.height;
+            elements.controls.textX.value = Math.min(Number(elements.controls.textX.value), size.width);
+            elements.controls.textY.value = Math.min(Number(elements.controls.textY.value), size.height);
+            elements.livePreviewImg.width = size.width;
+            elements.livePreviewImg.height = size.height;
+            elements.livePreviewImg.style.width = `${previewWidth}px`;
+            elements.livePreviewImg.style.height = `${previewHeight}px`;
+            elements.livePreviewImg.parentElement.style.width = `${previewWidth}px`;
+            elements.livePreviewImg.parentElement.style.height = `${previewHeight}px`;
             elements.labels.padding.textContent = `${elements.controls.padding.value}%`;
             elements.labels.offsetX.textContent = `${elements.controls.offsetX.value}%`;
             elements.labels.offsetY.textContent = `${elements.controls.offsetY.value}%`;
@@ -1035,6 +1104,12 @@
             const selectedFont = elements.controls.textFont.selectedOptions[0];
             elements.fontPreview.textContent = elements.controls.text.value.trim() || selectedFont.dataset.preview;
             elements.fontPreview.style.fontFamily = `"${elements.controls.textFont.value}", "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif`;
+        }
+
+        function updatePreviewBoxSize() {
+            const size = getOutputSize();
+            elements.livePreviewImg.width = size.width;
+            elements.livePreviewImg.height = size.height;
         }
 
         function downloadBlob(blob, filename) {
@@ -1050,7 +1125,8 @@
 
         async function downloadItem(item) {
             const blob = item.blob || await renderImageData(item);
-            downloadBlob(blob, `${safeName(item.name)}_240x240.png`);
+            const size = getOutputSize();
+            downloadBlob(blob, `${safeName(item.name)}_${size.width}x${size.height}.png`);
         }
 
         async function downloadSelected() {
@@ -1077,6 +1153,10 @@
         }
 
         function resetAdjustments() {
+            elements.controls.sizePreset.value = "240";
+            elements.controls.outputWidth.value = 240;
+            elements.controls.outputHeight.value = 240;
+            elements.controls.background.value = "white";
             elements.controls.padding.value = 0;
             elements.controls.offsetX.value = 0;
             elements.controls.offsetY.value = 0;
@@ -1086,7 +1166,28 @@
             elements.controls.textSize.value = 36;
             elements.controls.textX.value = 120;
             elements.controls.textY.value = 200;
+            syncSizePresetState(false);
             scheduleRenderAll();
+        }
+
+        function syncSizePresetState(resetTextPosition = true) {
+            const preset = elements.controls.sizePreset.value;
+            if (preset !== "custom") {
+                elements.controls.outputWidth.value = preset;
+                elements.controls.outputHeight.value = preset;
+            } else {
+                elements.controls.outputWidth.value = clampDimension(elements.controls.outputWidth.value);
+                elements.controls.outputHeight.value = clampDimension(elements.controls.outputHeight.value);
+            }
+
+            const size = getOutputSize();
+            elements.controls.outputWidth.disabled = preset !== "custom";
+            elements.controls.outputHeight.disabled = preset !== "custom";
+
+            if (resetTextPosition) {
+                elements.controls.textX.value = Math.round(size.width / 2);
+                elements.controls.textY.value = Math.round(size.height * 0.83);
+            }
         }
 
         function setupSegmentation(files) {
@@ -1309,6 +1410,16 @@
         setupDropZone(elements.segmentDropZone, elements.segmentFileInput, setupSegmentation);
 
         Object.values(elements.controls).forEach((control) => control.addEventListener("input", scheduleRenderAll));
+        elements.controls.sizePreset.addEventListener("change", () => {
+            syncSizePresetState(true);
+            scheduleRenderAll();
+        });
+        [elements.controls.outputWidth, elements.controls.outputHeight].forEach((control) => {
+            control.addEventListener("change", () => {
+                syncSizePresetState(false);
+                scheduleRenderAll();
+            });
+        });
         elements.resetAdjustBtn.addEventListener("click", resetAdjustments);
         elements.downloadBtn.addEventListener("click", downloadSelected);
         elements.clearBtn.addEventListener("click", clearFiles);
@@ -1333,6 +1444,7 @@
             }
         });
 
+        syncSizePresetState(false);
         syncControlLabels();
         updateStatus();
     </script>
